@@ -9,7 +9,7 @@ clc
 
 % i: corrente; 
 % xb: distancia entre o centro da bola e a extremidade da viga]
-% alpha: ângulo da viga com a horizontal
+% alpha: angulo da viga com a horizontal
 % theta: posição angular do motor
 % uN: tensão na entrada do motor
 
@@ -250,7 +250,7 @@ else
     disp('-> CONCLUSÃO: O sistema NÃO é totalmente observável.');
 end
 
-%% ----------------------------------------------------------PARTE 2 - CONTROLE CLÁSSICO---------------------------------------------------------
+%% PARTE 2 - CONTROLE CLÁSSICO
 
 % Lugar das Raízes de G(s)
 
@@ -268,6 +268,31 @@ rlocus(LR_G);
 grid on;
 title('Lugar das Raízes - Sistema Bola-Viga');
 
+% Alocação de Polos (Equação Diofantina)
+
+% Polinômio P(s) escolhido para 1 + CG
+P = (s+1)^2*(s+2)*(s+4)*(s+5)*(s+6)*(s+8)*(s+10)^2;
+
+% Expande o polinômio P e extrai os coeficientes
+P = expand(P);
+pv = coeffs(P, 'All')';
+
+% Definindo a matriz de Silvester para os polinômios numerador e
+% denominador
+
+S_d = matriz_sylvester(den_sym*s, den_sym*s, s)';
+S_d = S_d(:, 1:5)
+S_n = matriz_sylvester(den_sym*s, num_sym, s)';
+S = [];
+S(1:height(S_d), 1:width(S_d)) = S_d;
+S(1:height(S_n), width(S_d) + 1 : width(S_d) + width(S_n)) = S_n;
+
+% Cálculo do vetor de coeficientes do controlador com a equação Diofantina
+cv = inv(S'*S)*S'*pv;
+
+% Conversão dos coeficientes no controlador Co
+C_0 = poly2sym(cv(6:10), s) / poly2sym(cv(1:5), s);
+C_0 = vpa(C_0 / s, 4)
 
 
 
