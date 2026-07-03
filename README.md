@@ -303,6 +303,48 @@ C_0 = poly2sym(cv(end:-1:n_C + 2), s) / poly2sym(cv(n_C + 1:-1:1), s);
 % Cálculo do controlador C com base em C_0 / s
 C = vpa(C_0 / s, 4)
 
+%% Verificação se o controlador está de acordo com as especificações
+% CÁLCULO DA MARGEM DE FASE E FREQUÊNCIA DE CRUZAMENTO
 
+[num_C, den_C] = numden(C);
+num_C_num = sym2poly(num_C);
+den_C_num = sym2poly(den_C);
+
+% função de transferência do controlador
+C_tf = tf(num_C_num, den_C_num);
+
+Malha_Aberta = C_tf * LR_G;
+
+% 4. Obter as margens e as frequências com o comando 'margin'
+% MG = Margem de Ganho, MF = Margem de Fase
+% Wcg = Frequência de cruzamento de fase (onde fase = -180)
+% Om_g = Frequência de cruzamento de ganho (onde ganho = 0 dB)
+[MG, MF, Wcg, Om_g] = margin(Malha_Aberta);
+
+% 5. Mostrar os resultados na Command Window
+fprintf('\n--- RESULTADOS DA MALHA ABERTA ---\n');
+fprintf('Frequência de cruzamento de ganho (Om_g): %.4f rad/s\n', Om_g);
+fprintf('Margem de Fase (MF): %.4f graus\n', MF);
+
+% 6. Desenhar o Diagrama de Bode com as margens marcadas (Opcional, mas muito útil para o relatório)
+figure;
+margin(Malha_Aberta);
+grid on;
+title('Diagrama de Bode - Sistema em Malha Aberta (C_0 * G)');
+
+figure;
+nyquist(Malha_Aberta);
+grid on;
+title('Diagrama de Nyquist - Controlador C_0');
+
+% --- PROVA REAL DE ESTABILIDADE ---
+% Fechando a malha de controle (realimentação negativa unitária)
+Malha_Fechada = feedback(Malha_Aberta, 1);
+
+% Calculando os polos da malha fechada
+polos_MF = pole(Malha_Fechada);
+
+fprintf('\n--- POLOS DE MALHA FECHADA ---\n');
+disp(polos_MF);
 
 
