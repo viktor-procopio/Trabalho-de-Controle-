@@ -275,24 +275,33 @@ P = (s+1)^2*(s+2)*(s+4)*(s+5)*(s+6)*(s+8)*(s+10)^2;
 
 % Expande o polinômio P e extrai os coeficientes
 P = expand(P);
-pv = coeffs(P, 'All')';
+pv = coeffs(P, s, 'All')';
+
+% Expande o polinômio do denominador da planta D_G e obtém-se os
+% coeficientes
+D_G = expand(den_sym*s); % Multiplica-se por s para garantir um sistema do tipo 1
+dgv = coeffs(D_G, s, 'All');
+
+% Expande o polinômio do numerador da planta N_G e obtém-se os coeficientes
+N_G = expand(num_sym);
+ngv = coeffs(N_G, s, 'All');
 
 % Definindo a matriz de Silvester para os polinômios numerador e
 % denominador
+n_C = 4; % Ordem do denominador do controlador
+m_C = 4; % Ordem do numerador do controlador
 
-S_d = matriz_sylvester(den_sym*s, den_sym*s, s)';
-S_d = S_d(:, 1:5)
-S_n = matriz_sylvester(den_sym*s, num_sym, s)';
-S = [];
-S(1:height(S_d), 1:width(S_d)) = S_d;
-S(1:height(S_n), width(S_d) + 1 : width(S_d) + width(S_n)) = S_n;
+S = matriz_sylvester_controle(dgv, ngv, n_C, m_C)
 
 % Cálculo do vetor de coeficientes do controlador com a equação Diofantina
-cv = inv(S'*S)*S'*pv;
+cv = (S'*S)\(S'*pv(end:-1:1));
+%cv = S\pv;
 
-% Conversão dos coeficientes no controlador Co
-C_0 = poly2sym(cv(6:10), s) / poly2sym(cv(1:5), s);
-C_0 = vpa(C_0 / s, 4)
+% Conversão dos coeficientes no controlador C_0
+C_0 = poly2sym(cv(end:-1:n_C + 2), s) / poly2sym(cv(n_C + 1:-1:1), s);
+
+% Cálculo do controlador C com base em C_0 / s
+C = vpa(C_0 / s, 4)
 
 
 
