@@ -250,7 +250,7 @@ else
     disp('-> CONCLUSÃO: O sistema NÃO é totalmente observável.');
 end
 
-%% PARTE 2 - CONTROLE CLÁSSICO
+%% ----------------------------------------------------------PARTE 2 - CONTROLE CLÁSSICO---------------------------------------------------------
 
 % Lugar das Raízes de G(s)
 
