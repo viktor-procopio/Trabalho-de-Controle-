@@ -194,7 +194,7 @@ G_normalizado = vpa(num_norm / den_norm, 4)
 
 %% Análise de Estabilidade 
 
-polos = double(solve(den_agrupado == 0, s));
+polos = double(solve(den_norm == 0, s));
 
 disp('Os polos da Função de Transferência são:');
 disp(polos);
