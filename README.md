@@ -9,7 +9,7 @@ clc
 
 % i: corrente; 
 % xb: distancia entre o centro da bola e a extremidade da viga]
-% alpha: angulo da viga com a horizontal
+% alpha: ângulo da viga com a horizontal
 % theta: posição angular do motor
 % uN: tensão na entrada do motor
 
