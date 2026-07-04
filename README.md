@@ -369,3 +369,16 @@ grid on;
 title('Esforço de Controlo u_N(t) para Degrau de Referência de 0.02m');
 xlabel('Tempo (s)');
 ylabel('Tensão no Motor - u_N (V)');
+
+% Plotando a resposta da malha fechada em relação à entrada de referência
+% de 0,02
+% Simulando a resposta da malha fechada a um degrau de referência
+[y_t, t] = step(Malha_Fechada, 20, opt);
+
+% Plotando a resposta da malha fechada
+figure;
+plot(t, y_t, 'r', 'LineWidth', 1.5);
+grid on;
+title('Resposta da Malha Fechada a um Degrau de Referência de 0.02m');
+xlabel('Tempo (s)');
+ylabel('Saída do Sistema - y(t)');
