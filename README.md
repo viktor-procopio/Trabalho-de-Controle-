@@ -270,7 +270,7 @@ zeta = 0.75;      % Fator de amortecimento (mínimo de projeto é 0.3 para Marge
 P_dominante = s^2 + 2*zeta*wn*s + wn^2;
 
 % Polos Não-Dominantes (devem ser mais rápidos/distantes da origem)
-P_rapidos = (s+15)^2 * (s+18)^2 * (s+20)^2 * (s+25);
+P_rapidos = (s+9)^2 * (s+12)^2 * (s+15)^2 * (s+18); % Inicial P_rapidos = (s+15)^2 * (s+18)^2 * (s+20)^2 * (s+25); u_N = 97.8196 V
 
 % Polinômio de Malha Fechada Final (Grau 9)
 P = P_dominante * P_rapidos;
