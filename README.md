@@ -29,14 +29,14 @@ g   = 9.8;           % Aceleracao da gravidade
 
 
 % Definindo as variáveis de estado e suas derivadas
-syms xb xb_dot xb_ddot alpha alpha_ddot theta theta_dot theta_ddot f i Lm di dt uN
+syms xb xb_dot xb_ddot alpha alpha_ddot theta theta_dot theta_ddot f i Lm t uN
 
 
 eq1_NL = (mb+Jb/r^2)*xb_ddot + b*xb_dot - mb*g*sin(alpha) == 0;                                         % Equação da bola
 eq2_NL = Jl*alpha_ddot + ml*g*cos(alpha)*(l/2) + mb*g*cos(alpha)*(l-xb) + f*l*cos(alpha) == 0;          % Equação da viga
 eq3_NL = l*sin(alpha) - d*sin(theta) == 0;                                                              % Equação da relação entre theta e alpha
 eq4_NL = Jm*theta_ddot + Bm*theta_dot - f*cos(theta)*d - Km*i == 0;                                     % Equação do motor de corrente contínua
-eq5_NL = uN - Rm*i - Lm*(di/dt) - Km*theta_dot == 0;                                                    % Equação do motor de corrente contínua
+eq5_NL = uN - Rm*i - Lm*diff(i,t) - Km*theta_dot == 0;                                                    % Equação do motor de corrente contínua
 
 
 %% 1) Obtenha o modelo linearizado para pequenas perturbações, 
@@ -118,49 +118,43 @@ D = 0;
 
 k = d/l;
 delta  = 1 - k^2*(sin(theta))^2;
-cos(alpha) = sqrt(delta);
-alpha_ddot = (k*sin(theta)*theta_ddot^2*(k^2-1) + k*cos(theta)*theta_ddot*delta)/(delta^(3/2));
-sin(alpha) = k*sin(theta);
+%cos(alpha) = sqrt(delta);
+%alpha_ddot = (k*sin(theta)*theta_ddot^2*(k^2-1) + k*cos(theta)*theta_ddot*delta)/(delta^(3/2));
+%sin(alpha) = k*sin(theta);
 
-% eq1_NL = (mb+Jb/r^2)*xb_ddot + b*xb_dot - mb*g*sin(alpha) == 0;                                       % Equação da bola
-% eq2_NL = Jl*alpha_ddot + ml*g*cos(alpha)*(l/2) + mb*g*cos(alpha)*(l-xb) + f*l*cos(alpha) == 0;        % Equação da viga
-% eq3_NL = l*sin(alpha) - d*sin(theta) == 0;                                                            % Equação da relação entre theta e alpha
-% eq4_NL = Jm*theta_ddot + Bm*theta_dot - f*cos(theta)*d - Km*i == 0;                                   % Equação do motor de corrente contínua
-% eq5_NL = uN - Rm*i - Lm*(di/dt) - Km*theta_dot == 0;                                                  % Equação do motor de corrente contínua
+%Lm = 0;                                                                          % Aproximação dada pelo enunciado
+%i  = (uN - Km*theta_dot)/Rm;
+% Isolamento de i a partir da equação 5
+i_eq_5 = solve(subs(eq5_NL, Lm, 0), i);
 
-Lm = 0;                                                                          % Aproximação dada pelo enunciado
-i  = (uN - Km*theta_dot)/Rm;
-f  = (1/d)*(Jm*theta_ddot + B*theta_dot - Km*(uN - Km*theta_dot)/Rm)/cos(theta); 
+% Aplicação da simplificação nas equações iniciais
+eq1_NL_simp = subs(eq1_NL, sin(alpha), k*sin(theta));
+eq2_NL_simp = subs(eq2_NL, [alpha_ddot, cos(alpha)], [(k*sin(theta)*theta_dot^2*(k^2-1) + k*cos(theta)*theta_ddot*delta)/(delta^(3/2)), sqrt(delta)]);
 
+% Isolando f de eq2_NL_simp
+f_eq_2 = solve(eq2_NL_simp, f);
 
-eq1_NL = subs(eq1_NL, sin(alpha), k*sin(theta));
-eq2_NL = subs(eq2_NL, f,(1/d)*(Jm*theta_ddot + B*theta_dot - Km*(uN - Km*theta_dot)/Rm)/cos(theta)); 
-eq4_NL = subs(eq1_NL, i, (uN - Km*theta_dot)/Rm);
+% Isolando xb_ddot na eq1_NL_simp
+xb_ddot_NL = solve(eq1_NL_simp, xb_ddot);
 
-% Isolando xb_ddot na eq1_NL
-xb_ddot = (mb*g*k*sin(theta) - b*xb_dot)/(mb + Jb/r^2);
-
-% Isolando theta_ddot na eq2_NL
-% theta_ddot = Jl*k*theta_dot^2*(k^2-1)*sin(theta) + (delta^2)*(l/2*ml*g + (l - xb)*mb*g + theta_dot((B+(Km^2/Rm))/k*cos(theta)) - (Km*uN)/(k*Rm*cos(theta)) / (Jl*k*delta*cos(theta) + (delta^2*Jm/(k*cos(theta)))); % para simplificar multiplica-se por kcos(theta)/kcos(theta)
-theta_ddot = Jl*k^2*theta_dot^2*(k^2-1)*sin(theta)*cos(theta) + (delta^2)*(k*cos(theta)*g*(l/2*ml + (l - xb)*mb) + theta_dot*(B+(Km^2/Rm)) - (Km*uN)/Rm) / (Jl*k^2*delta*cos(theta)^2 + (delta^2*Jm));
+% Isolando theta_ddot na eq4_NL, substituindo f por f_eq_2 e i por i_eq_5
+theta_ddot_eq_2 = solve(subs(eq4_NL, [f, i], [f_eq_2, i_eq_5]), theta_ddot);
 
 % Representação em Espaços de Estados
-syms z1 z2 z3 z4 z1_dot z2_dot z3_dot z4_dot
-
-z1 = xb;
-z2 = xb_dot;
-z3 = theta;
-z4 = theta_dot;
 
 z1_dot  = xb_dot;
-z2_dot  = (mb*g*k*sin(z3) - b*z2)/(mb + Jb/r^2); % = xb_ddot 
-z3_dot  = z4; % = theta_dot  
-z4_dot  = theta_ddot;
+z2_dot  = xb_ddot_NL; % = xb_ddot 
+z3_dot  = theta_dot; % = theta_dot  
+z4_dot  = theta_ddot_eq_2;
 
-Z_dot = [z1_dot
-         z2_dot
-         z3_dot
+Z_dot = [z1_dot;
+         z2_dot;
+         z3_dot;
          z4_dot];
+
+
+% Convertendo Z_dot para uma função do MATLAB
+Z_dot_func = matlabFunction(Z_dot, 'Vars', {xb, xb_dot, theta, theta_dot, uN});
 
 %% 5) Função de Transferência G(s) = X1(s) / U(s) e Estabilidade
 
@@ -344,7 +338,7 @@ Tr_u = feedback(C_tf, LR_G);
 opt = stepDataOptions('StepAmplitude', 0.02);
 
 % Simulando o esforço de controlo no tempo (vamos olhar os primeiros 20 segundos)
-[u_t, t_u] = step(Tr_u, 20, opt);
+[u_t, t_u] = step(Tr_u, 10, opt);
 
 % Encontrando o pico máximo absoluto do esforço de controlo
 pico_u = max(abs(u_t));
@@ -382,3 +376,58 @@ grid on;
 title('Resposta da Malha Fechada a um Degrau de Referência de 0.02m');
 xlabel('Tempo (s)');
 ylabel('Saída do Sistema - y(t)');
+
+%% Simulação da aplicação de C(s) para a representação em espaço de estados não linear
+
+% Definição da condição inicial z_0 do sistema não-linear
+z_0 = [0.5 0 0 0]';
+
+% Definindo a representação em espaço de estados do controlador a
+% partir de seu numerador e denominador
+[A_C, B_C, C_C, D_C] = tf2ss(num_C_num, den_C_num);
+
+% Definindo o estado inicial do controlador
+x_C_0 = zeros([height(A_C), 1]);
+
+% Definindo estado inicial do sistema inteiro
+zeta_0 = [z_0; x_C_0];
+
+% Integração numérica da representação em espaço de estados não linear para
+% a condição inicial zeta_0 e intervalo de tempo de 10 segundos
+
+% Integração numérica usando ode45 para resolver as equações diferenciais
+t_span = [0 20]; % Intervalo de tempo para a simulação
+[t_out, zeta_out] = ode45(@(t,zeta) rep_nao_linear(t, zeta, C, Z_dot_func), t_span, zeta_0);
+
+% Plotagem do resultado junto da malha fechada
+figure(5);
+hold on
+plot(t_out, zeta_out(:, 1), 'g', 'LineWidth', 1.5);
+
+
+
+
+
+
+
+
+% Definição da função de representação das equações diferenciais a serem
+% estimadas
+
+function zeta_dot = rep_nao_linear(t, zeta, C, Z_dot_func)
+    % Separação dos valores do numerador e do denominador de C
+    [num_C, den_C] = numden(C);
+    num_C_num = sym2poly(num_C);
+    den_C_num = sym2poly(den_C);
+
+    % Definindo a representação em espaço de estados do controlador a
+    % partir de seu numerador e denominador
+    [A_C, B_C, C_C, D_C] = tf2ss(num_C_num, den_C_num);
+
+    % Seção voltada ao espaço de estados não linear da planta
+    zeta_dot(1:4, 1) = Z_dot_func(zeta(1), zeta(2), zeta(3), zeta(4), C_C * zeta(4 + 1:4 + height(A_C)));
+
+    % Seção voltada ao espaço de estados linear do controlador com a
+    % referência em 0,02 m
+    zeta_dot(4 + 1:4 + height(A_C), 1) = A_C * zeta(4 + 1:4 + height(A_C)) + B_C * (0.02 - zeta(1));
+end
