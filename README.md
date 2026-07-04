@@ -379,55 +379,51 @@ ylabel('Saída do Sistema - y(t)');
 
 %% Simulação da aplicação de C(s) para a representação em espaço de estados não linear
 
-% Definição da condição inicial z_0 do sistema não-linear
-z_0 = [0.5 0 0 0]';
-
-% Definindo a representação em espaço de estados do controlador a
-% partir de seu numerador e denominador
+% 1. Transformação para Espaço de Estados do Controlador
 [A_C, B_C, C_C, D_C] = tf2ss(num_C_num, den_C_num);
 
-% Definindo o estado inicial do controlador
-x_C_0 = zeros([height(A_C), 1]);
+% 2. Definição das Condições Iniciais
+z_0 = [0.5; 0; 0; 0]; % Condição inicial da planta (já como vetor coluna)
+x_C_0 = zeros(size(A_C, 1), 1); % Condição inicial do controlador
+zeta_0 = [z_0; x_C_0]; % Estado estendido
 
-% Definindo estado inicial do sistema inteiro
-zeta_0 = [z_0; x_C_0];
+% 3. Integração Numérica
+t_span = [0 20]; % Intervalo de 20 segundos
 
-% Integração numérica da representação em espaço de estados não linear para
-% a condição inicial zeta_0 e intervalo de tempo de 10 segundos
+% Passamos A_C, B_C, C_C, e D_C como argumentos fixos para a função
+[t_out, zeta_out] = ode45(@(t, zeta) rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C), t_span, zeta_0);
 
-% Integração numérica usando ode45 para resolver as equações diferenciais
-t_span = [0 20]; % Intervalo de tempo para a simulação
-[t_out, zeta_out] = ode45(@(t,zeta) rep_nao_linear(t, zeta, C, Z_dot_func), t_span, zeta_0);
-
-% Plotagem do resultado junto da malha fechada
+% 4. Plotagem do resultado
 figure(5);
-hold on
 plot(t_out, zeta_out(:, 1), 'g', 'LineWidth', 1.5);
+title('Resposta do Sistema Não Linear em Malha Fechada');
+xlabel('Tempo (s)');
+ylabel('Posição zeta_1 (m)');
+grid on;
 
-
-
-
-
-
-
-
-% Definição da função de representação das equações diferenciais a serem
-% estimadas
-
-function zeta_dot = rep_nao_linear(t, zeta, C, Z_dot_func)
-    % Separação dos valores do numerador e do denominador de C
-    [num_C, den_C] = numden(C);
-    num_C_num = sym2poly(num_C);
-    den_C_num = sym2poly(den_C);
-
-    % Definindo a representação em espaço de estados do controlador a
-    % partir de seu numerador e denominador
-    [A_C, B_C, C_C, D_C] = tf2ss(num_C_num, den_C_num);
-
-    % Seção voltada ao espaço de estados não linear da planta
-    zeta_dot(1:4, 1) = Z_dot_func(zeta(1), zeta(2), zeta(3), zeta(4), C_C * zeta(4 + 1:4 + height(A_C)));
-
-    % Seção voltada ao espaço de estados linear do controlador com a
-    % referência em 0,02 m
-    zeta_dot(4 + 1:4 + height(A_C), 1) = A_C * zeta(4 + 1:4 + height(A_C)) + B_C * (0.02 - zeta(1));
+%% -------------------------------------------------------------------------
+% Função de Equações Diferenciais (Otimizada para Velocidade e Precisão)
+function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C)
+    
+    % Inicializa o vetor coluna de derivadas
+    zeta_dot = zeros(length(zeta), 1);
+    
+    % Separação dos estados para clareza
+    x_planta = zeta(1:4);
+    x_controlador = zeta(5:end);
+    
+    % Cálculo do Erro (Referência - Posição Atual)
+    ref = 0.02;
+    erro = ref - x_planta(1);
+    
+    % Cálculo da Ação de Controle: u = C_c * x_c + D_c * erro
+    u = C_C * x_controlador + D_C * erro;
+    
+    % Derivadas da Planta Não Linear
+    % Passamos os 4 estados e a entrada de controle calculada
+    zeta_dot(1:4, 1) = Z_dot_func(x_planta(1), x_planta(2), x_planta(3), x_planta(4), u);
+    
+    % Derivadas do Controlador Linear: x_c_dot = A_c * x_c + B_c * erro
+    zeta_dot(5:end, 1) = A_C * x_controlador + B_C * erro;
+    
 end
