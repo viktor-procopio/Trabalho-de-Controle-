@@ -179,17 +179,14 @@ eq3_s = subs(eq2_s, X3, X3_expr);
 X1_expr = solve(eq3_s, X1);
 G = X1_expr / U;
 
-[num, den] = numden(G);          % Extrai numerador e denominador
+[num, den] = numden(G);          % Pegar o numerador e denominador
 
-% Encontra o coeficiente do termo de maior grau (s^4)
+% coeficiente do termo de maior grau
 coef_lider = coeffs(den, s, 'All');
 fator_divisao = coef_lider(1); 
-
-% Normaliza e agrupa o numerador e o denominador nas potências de 's'
 num_norm = collect(num / fator_divisao, s);
 den_norm = collect(den / fator_divisao, s);
 
-% Monta a função de transferência e aplica o VPA na expressão COMPLETA
 G_normalizado = vpa(num_norm / den_norm, 4)
 
 %% Análise de Estabilidade 
@@ -251,16 +248,13 @@ else
 end
 
 %% PARTE 2 - CONTROLE CLÁSSICO
-
 % Lugar das Raízes de G(s)
-
 % Extrai o numerador e denominador simbólicos de G_normalizado
 [num_sym, den_sym] = numden(G_normalizado);
 
 % Converter os polinômios simbólicos em vetores de números
 num_num = sym2poly(num_sym);
 den_num = sym2poly(den_sym);
-
 LR_G = tf(num_num, den_num);
 
 figure;
@@ -270,15 +264,22 @@ title('Lugar das Raízes - Sistema Bola-Viga');
 
 % Alocação de Polos (Equação Diofantina)
 
-% Polinômio P(s) escolhido para 1 + CG
-P = (s+1)^2*(s+2)*(s+4)*(s+5)*(s+6)*(s+8)*(s+10)^2;
+% Parâmetros dos Polos Dominantes
+wn = 0.45;          % Frequência natural (velocidade do sistema)
+zeta = 0.75;      % Fator de amortecimento (mínimo de projeto é 0.3 para Margem de Fase >=30°)
+P_dominante = s^2 + 2*zeta*wn*s + wn^2;
+
+% Polos Não-Dominantes (devem ser mais rápidos/distantes da origem)
+P_rapidos = (s+15)^2 * (s+18)^2 * (s+20)^2 * (s+25);
+
+% Polinômio de Malha Fechada Final (Grau 9)
+P = P_dominante * P_rapidos;
 
 % Expande o polinômio P e extrai os coeficientes
 P = expand(P);
 pv = coeffs(P, s, 'All')';
 
-% Expande o polinômio do denominador da planta D_G e obtém-se os
-% coeficientes
+% Expande o polinômio do denominador da planta D_G e obtém-se os coeficientes
 D_G = expand(den_sym*s); % Multiplica-se por s para garantir um sistema do tipo 1
 dgv = coeffs(D_G, s, 'All');
 
@@ -286,65 +287,46 @@ dgv = coeffs(D_G, s, 'All');
 N_G = expand(num_sym);
 ngv = coeffs(N_G, s, 'All');
 
-% Definindo a matriz de Silvester para os polinômios numerador e
-% denominador
+% Definindo a matriz de Silvester para os polinômios numerador e denominador
 n_C = 4; % Ordem do denominador do controlador
 m_C = 4; % Ordem do numerador do controlador
+S = matriz_sylvester_controle(dgv, ngv, n_C, m_C);
 
-S = matriz_sylvester_controle(dgv, ngv, n_C, m_C)
-
-% Cálculo do vetor de coeficientes do controlador com a equação Diofantina
-cv = (S'*S)\(S'*pv(end:-1:1));
-%cv = S\pv;
+cv = S \ pv(end:-1:1);
 
 % Conversão dos coeficientes no controlador C_0
 C_0 = poly2sym(cv(end:-1:n_C + 2), s) / poly2sym(cv(n_C + 1:-1:1), s);
 
 % Cálculo do controlador C com base em C_0 / s
-C = vpa(C_0 / s, 4)
+C = vpa(C_0 / s, 4);
 
 %% Verificação se o controlador está de acordo com as especificações
 % CÁLCULO DA MARGEM DE FASE E FREQUÊNCIA DE CRUZAMENTO
-
 [num_C, den_C] = numden(C);
 num_C_num = sym2poly(num_C);
 den_C_num = sym2poly(den_C);
 
-% função de transferência do controlador
 C_tf = tf(num_C_num, den_C_num);
-
 Malha_Aberta = C_tf * LR_G;
 
-% 4. Obter as margens e as frequências com o comando 'margin'
-% MG = Margem de Ganho, MF = Margem de Fase
-% Wcg = Frequência de cruzamento de fase (onde fase = -180)
-% Om_g = Frequência de cruzamento de ganho (onde ganho = 0 dB)
 [MG, MF, Wcg, Om_g] = margin(Malha_Aberta);
 
-% 5. Mostrar os resultados na Command Window
 fprintf('\n--- RESULTADOS DA MALHA ABERTA ---\n');
 fprintf('Frequência de cruzamento de ganho (Om_g): %.4f rad/s\n', Om_g);
 fprintf('Margem de Fase (MF): %.4f graus\n', MF);
 
-% 6. Desenhar o Diagrama de Bode com as margens marcadas (Opcional, mas muito útil para o relatório)
 figure;
 margin(Malha_Aberta);
 grid on;
-title('Diagrama de Bode - Sistema em Malha Aberta (C_0 * G)');
+title('Diagrama de Bode - Sistema em Malha Aberta (C * G)');
 
 figure;
 nyquist(Malha_Aberta);
 grid on;
-title('Diagrama de Nyquist - Controlador C_0');
+title('Diagrama de Nyquist - Sistema em Malha Aberta (C * G)');
 
-% --- PROVA REAL DE ESTABILIDADE ---
-% Fechando a malha de controle (realimentação negativa unitária)
+
 Malha_Fechada = feedback(Malha_Aberta, 1);
-
-% Calculando os polos da malha fechada
-polos_MF = pole(Malha_Fechada);
 
 fprintf('\n--- POLOS DE MALHA FECHADA ---\n');
 disp(polos_MF);
-
-
