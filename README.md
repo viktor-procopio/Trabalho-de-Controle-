@@ -397,14 +397,14 @@ t_span = [0 20]; % Intervalo de 20 segundos
 figure(5);
 hold on
 plot(t_out, zeta_out(:, 1) - 0.5, 'g', 'LineWidth', 1.5);
+legend('Modelo Linear', 'Modelo Não Linear')
 
 % 5. Plotagem do esforço de controle do sistema não linear
-figure
-plot(t_out, uo + (C_C * zeta_out(:, 5:end)' + D_C * (0.52 - zeta_out(:, 1)'))', 'm', 'LineWidth', 1.5); % Tensão no motor
-xlabel('Tempo (s)');
-ylabel('Tensão no Motor - u_N (V)');
-title('Esforço de Controle do Sistema Não Linear');
-grid on;
+figure(4)
+hold on
+plot(t_out, (C_C * zeta_out(:, 5:end)' + D_C * (0.52 - zeta_out(:, 1)'))', 'm', 'LineWidth', 1.5); % Tensão no motor
+legend('Modelo Linear', '', '', 'Modelo Não-Linear')
+axis([0 2 -50 50])
 
 %% -------------------------------------------------------------------------
 function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo)
