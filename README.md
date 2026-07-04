@@ -391,39 +391,48 @@ zeta_0 = [z_0; x_C_0]; % Estado estendido
 t_span = [0 20]; % Intervalo de 20 segundos
 
 % Passamos A_C, B_C, C_C, e D_C como argumentos fixos para a função
-[t_out, zeta_out] = ode45(@(t, zeta) rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C), t_span, zeta_0);
+[t_out, zeta_out] = ode45(@(t, zeta) rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo), t_span, zeta_0);
 
 % 4. Plotagem do resultado
 figure(5);
-plot(t_out, zeta_out(:, 1), 'g', 'LineWidth', 1.5);
-title('Resposta do Sistema Não Linear em Malha Fechada');
+hold on
+plot(t_out, zeta_out(:, 1) - 0.5, 'g', 'LineWidth', 1.5);
+
+% 5. Plotagem do esforço de controle do sistema não linear
+figure
+plot(t_out, uo + (C_C * zeta_out(:, 5:end)' + D_C * (0.52 - zeta_out(:, 1)'))', 'm', 'LineWidth', 1.5); % Tensão no motor
 xlabel('Tempo (s)');
-ylabel('Posição zeta_1 (m)');
+ylabel('Tensão no Motor - u_N (V)');
+title('Esforço de Controle do Sistema Não Linear');
 grid on;
 
 %% -------------------------------------------------------------------------
-% Função de Equações Diferenciais (Otimizada para Velocidade e Precisão)
-function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C)
+function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo)
     
     % Inicializa o vetor coluna de derivadas
     zeta_dot = zeros(length(zeta), 1);
     
     % Separação dos estados para clareza
-    x_planta = zeta(1:4);
+    x_planta = zeta(1:4);        % [xb, xb_dot, theta, theta_dot]
     x_controlador = zeta(5:end);
     
-    % Cálculo do Erro (Referência - Posição Atual)
-    ref = 0.02;
-    erro = ref - x_planta(1);
+    % 1. CÁLCULO DO ERRO (Deve ser baseado na referência absoluta)
+    xb_o = 0.5;                  % Ponto de operação
+    ref = 0.02;      % Degrau desejado
+    ref_absoluta = xb_o + ref; % Alvo real: 0.52 m
     
-    % Cálculo da Ação de Controle: u = C_c * x_c + D_c * erro
-    u = C_C * x_controlador + D_C * erro;
+    erro = ref_absoluta - x_planta(1);
     
-    % Derivadas da Planta Não Linear
-    % Passamos os 4 estados e a entrada de controle calculada
-    zeta_dot(1:4, 1) = Z_dot_func(x_planta(1), x_planta(2), x_planta(3), x_planta(4), u);
+    % 2. CÁLCULO DA AÇÃO DE CONTROLE INCREMENTAL (u)
+    u_incremental = C_C * x_controlador + D_C * erro;
     
-    % Derivadas do Controlador Linear: x_c_dot = A_c * x_c + B_c * erro
+    % 3. CÁLCULO DA TENSÃO ABSOLUTA NO MOTOR (uN)
+    uN = u_incremental + uo;
+    
+    % Derivadas da Planta Não Linear (agora recebendo uN, e não apenas u)
+    zeta_dot(1:4, 1) = Z_dot_func(x_planta(1), x_planta(2), x_planta(3), x_planta(4), uN);
+    
+    % Derivadas do Controlador Linear
     zeta_dot(5:end, 1) = A_C * x_controlador + B_C * erro;
     
 end
