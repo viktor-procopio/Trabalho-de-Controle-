@@ -325,8 +325,47 @@ nyquist(Malha_Aberta);
 grid on;
 title('Diagrama de Nyquist - Sistema em Malha Aberta (C * G)');
 
-
 Malha_Fechada = feedback(Malha_Aberta, 1);
+
+polos_MF = pole(Malha_Fechada);
 
 fprintf('\n--- POLOS DE MALHA FECHADA ---\n');
 disp(polos_MF);
+
+fprintf('\n--- ANÁLISE DE AMORTECIMENTO (DAMP) ---\n');
+damp(Malha_Fechada);
+
+% Análise de Esforço de Controlo 
+% A função de transferência de R(s) para U(s) é C(s) / (1 + C(s)G(s))
+% O comando feedback(C, G) faz exatamente a malha: C / (1 + C*G)
+Tr_u = feedback(C_tf, LR_G);
+
+% Definindo a amplitude da referência r_chapeu = 0.02
+opt = stepDataOptions('StepAmplitude', 0.02);
+
+% Simulando o esforço de controlo no tempo (vamos olhar os primeiros 20 segundos)
+[u_t, t_u] = step(Tr_u, 20, opt);
+
+% Encontrando o pico máximo absoluto do esforço de controlo
+pico_u = max(abs(u_t));
+
+% Exibindo o resultado na Command Window
+fprintf('\n--- VERIFICAÇÃO DO ESFORÇO DE CONTROLO ---\n');
+fprintf('Pico de tensão no motor (max |u_N|): %.4f V\n', pico_u);
+
+if pico_u <= 50
+    fprintf('STATUS: APROVADO! O pico é menor que 50 V.\n');
+else
+    fprintf('STATUS: REPROVADO! O pico ultrapassou 50 V.\n');
+end
+
+% Plotando o gráfico do Esforço de Controlo para o Relatório
+figure;
+plot(t_u, u_t, 'b', 'LineWidth', 1.5);
+hold on;
+yline(50, 'r--', 'Limite de +50V', 'LineWidth', 1.5, 'LabelHorizontalAlignment', 'left');
+yline(-50, 'r--', 'Limite de -50V', 'LineWidth', 1.5, 'LabelHorizontalAlignment', 'left');
+grid on;
+title('Esforço de Controlo u_N(t) para Degrau de Referência de 0.02m');
+xlabel('Tempo (s)');
+ylabel('Tensão no Motor - u_N (V)');
