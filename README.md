@@ -377,37 +377,89 @@ title('Resposta da Malha Fechada a um Degrau de Referência de 0.02m');
 xlabel('Tempo (s)');
 ylabel('Saída do Sistema - y(t)');
 
-%% Simulação da aplicação de C(s) para a representação em espaço de estados não linear
+%% -------------------------------------------------------------------------
+%% SIMULAÇÃO PARA MÚLTIPLAS REFERÊNCIAS (LINEAR vs NÃO LINEAR)
+%% -------------------------------------------------------------------------
 
-% 1. Transformação para Espaço de Estados do Controlador
+% 1. Definindo o Controlador e Matrizes de Estado
 [A_C, B_C, C_C, D_C] = tf2ss(num_C_num, den_C_num);
 
-% 2. Definição das Condições Iniciais
-z_0 = [0.5; 0; 0; 0]; % Condição inicial da planta (já como vetor coluna)
+% 2. Vetor de Referências a serem testadas (incrementais em metros)
+ref_vec = [0.10, 0.15, 0.2]; 
+cores = {'b', 'r', 'k', 'm'}; % Cores para diferenciar as referências
+
+% 3. Configurações de Simulação Numérica
+t_span = [0 20]; % 20 segundos de simulação
+z_0 = [0.5; 0; 0; 0]; % Condição inicial da planta (xb começa em 0.5m)
 x_C_0 = zeros(size(A_C, 1), 1); % Condição inicial do controlador
 zeta_0 = [z_0; x_C_0]; % Estado estendido
 
-% 3. Integração Numérica
-t_span = [0 20]; % Intervalo de 20 segundos
+% 4. Preparando as Figuras
+fig_pos = figure('Name', 'Posição - Comparativo', 'Position', [100, 100, 800, 500]);
+hold on; grid on;
+title('Resposta ao Degrau (Incremental) - Linear vs Não Linear');
+xlabel('Tempo (s)');
+ylabel('Posição da Bola (m) [x_b - x_{bo}]');
 
-% Passamos A_C, B_C, C_C, e D_C como argumentos fixos para a função
-[t_out, zeta_out] = ode45(@(t, zeta) rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo), t_span, zeta_0);
+fig_u = figure('Name', 'Esforço de Controle - Comparativo', 'Position', [150, 150, 800, 500]);
+hold on; grid on;
+title('Esforço de Controle Incremental (u) - Linear vs Não Linear');
+xlabel('Tempo (s)');
+ylabel('Tensão no Motor - u (V)');
+yline(50, 'r--', 'Limite de +50V', 'LineWidth', 1.5, 'LabelHorizontalAlignment', 'left', 'HandleVisibility', 'off');
+yline(-50, 'r--', 'Limite de -50V', 'LineWidth', 1.5, 'LabelHorizontalAlignment', 'left', 'HandleVisibility', 'off');
 
-% 4. Plotagem do resultado
-figure(5);
-hold on
-plot(t_out, zeta_out(:, 1) - 0.5, 'g', 'LineWidth', 1.5);
-legend('Modelo Linear', 'Modelo Não Linear')
+% 5. Laço de Simulação
+for idx = 1:length(ref_vec)
+    ref_atual = ref_vec(idx);
+    cor = cores{mod(idx-1, length(cores)) + 1}; % Escolhe a cor
+    
+    %% --- SIMULAÇÃO DO MODELO LINEAR ---
+    opt = stepDataOptions('StepAmplitude', ref_atual);
+    [y_L, t_L] = step(Malha_Fechada, 20, opt);
+    [u_L, t_u_L] = step(Tr_u, 20, opt);
+    
+    %% --- SIMULAÇÃO DO MODELO NÃO LINEAR ---
+    % Passamos ref_atual como argumento para a função ODE
+    [t_NL, zeta_NL] = ode45(@(t, zeta) rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo, ref_atual), t_span, zeta_0);
+    
+    % Extração da Posição Não Linear (Valor incremental para comparar com o Linear)
+    y_NL = zeta_NL(:, 1) - 0.5;
+    
+    % Cálculo do Esforço de Controle Não Linear ao longo do tempo (Valor Incremental)
+    u_NL = zeros(length(t_NL), 1);
+    for k = 1:length(t_NL)
+        x_c_atual = zeta_NL(k, 5:end)';
+        erro_atual = ref_atual - (zeta_NL(k, 1) - 0.5); % Referência inc. - Posição inc.
+        u_NL(k) = C_C * x_c_atual + D_C * erro_atual;
+    end
+    
+    %% --- PLOTAGEM DOS RESULTADOS ---
+    % Adicionando aos gráficos (Linha tracejada = Linear, Linha contínua = Não Linear)
+    
+    % Gráfico de Posição
+    figure(fig_pos);
+    plot(t_L, y_L, 'LineStyle', '--', 'Color', cor, 'LineWidth', 1.5, ...
+        'DisplayName', sprintf('Linear (ref=%.2f m)', ref_atual));
+    plot(t_NL, y_NL, 'LineStyle', '-', 'Color', cor, 'LineWidth', 1.5, ...
+        'DisplayName', sprintf('Não Linear (ref=%.2f m)', ref_atual));
+        
+    % Gráfico de Controle
+    figure(fig_u);
+    plot(t_u_L, u_L, 'LineStyle', '--', 'Color', cor, 'LineWidth', 1.5, ...
+        'DisplayName', sprintf('Linear (ref=%.2f m)', ref_atual));
+    plot(t_NL, u_NL, 'LineStyle', '-', 'Color', cor, 'LineWidth', 1.5, ...
+        'DisplayName', sprintf('Não Linear (ref=%.2f m)', ref_atual));
+end
 
-% 5. Plotagem do esforço de controle do sistema não linear
-figure(4)
-hold on
-plot(t_out, (C_C * zeta_out(:, 5:end)' + D_C * (0.52 - zeta_out(:, 1)'))', 'm', 'LineWidth', 1.5); % Tensão no motor
-legend('Modelo Linear', '', '', 'Modelo Não-Linear')
-axis([0 2 -50 50])
+% Ajuste das Legendas
+figure(fig_pos); legend('Location', 'best');
+figure(fig_u); legend('Location', 'best');
+axis([0 4 -200 200])
 
 %% -------------------------------------------------------------------------
-function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo)
+% Função de Equações Diferenciais (Atualizada com ref_incremental)
+function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo, ref_incremental)
     
     % Inicializa o vetor coluna de derivadas
     zeta_dot = zeros(length(zeta), 1);
@@ -416,10 +468,9 @@ function zeta_dot = rep_nao_linear(t, zeta, Z_dot_func, A_C, B_C, C_C, D_C, uo)
     x_planta = zeta(1:4);        % [xb, xb_dot, theta, theta_dot]
     x_controlador = zeta(5:end);
     
-    % 1. CÁLCULO DO ERRO (Deve ser baseado na referência absoluta)
+    % 1. CÁLCULO DO ERRO (Baseado na referência absoluta para a planta física)
     xb_o = 0.5;                  % Ponto de operação
-    ref = 0.02;      % Degrau desejado
-    ref_absoluta = xb_o + ref; % Alvo real: 0.52 m
+    ref_absoluta = xb_o + ref_incremental; 
     
     erro = ref_absoluta - x_planta(1);
     
