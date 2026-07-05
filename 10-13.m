@@ -154,8 +154,8 @@ legend('Modelo Linearizado', 'Modelo Não-Linear Real', 'Location', 'Best'); gri
 % ========================================================================
 % 12. PROJETO DO OBSERVADOR (ITEM 12)
 % ========================================================================
-fator_rapidez = 6; 
-polo_base_obs = -fator_rapidez * sigma_p; 
+fator_rapidez = 1.5; 
+polo_base_obs = fator_rapidez * max(polos_planta); 
 polos_observador = [polo_base_obs, polo_base_obs-1, polo_base_obs-2, polo_base_obs-3];
 L = place(A', C', polos_observador)';
 
