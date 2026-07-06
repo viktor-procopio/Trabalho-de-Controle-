@@ -61,10 +61,10 @@ D = 0;
 
 % Requisitos de Polos Dominantes (TS < 4s, xi = 0.6, wn = 2.5)
 xi_p = 0.6; 
-wn_p = 3; 
+wn_p = 4; 
 sigma_p = xi_p * wn_p; 
 wd_p = wn_p * sqrt(1 - xi_p^2);
-polos_planta = [-sigma_p + 1i*wd_p, -sigma_p - 1i*wd_p, -8*sigma_p, -10*sigma_p];
+polos_planta = [-sigma_p + 1i*wd_p, -sigma_p - 1i*wd_p, -2*sigma_p, -3*sigma_p];
 
 K = place(A, B, polos_planta);
 M = zeros(size(K, 2), 1);
@@ -154,7 +154,7 @@ legend('Modelo Linearizado', 'Modelo Não-Linear Real', 'Location', 'Best'); gri
 % ========================================================================
 % 12. PROJETO DO OBSERVADOR (ITEM 12)
 % ========================================================================
-fator_rapidez = 1.5; 
+fator_rapidez = 6; 
 polo_base_obs = fator_rapidez * max(polos_planta); 
 polos_observador = [polo_base_obs, polo_base_obs-1, polo_base_obs-2, polo_base_obs-3];
 L = place(A', C', polos_observador)';
