@@ -60,13 +60,11 @@ C = [1, 0, 0, 0];
 D = 0;
 
 % Requisitos de Polos Dominantes (TS < 4s, xi = 0.6, wn = 2.5)
-xi_p = 0.6; 
-wn_p = 4; 
-sigma_p = xi_p * wn_p; 
-wd_p = wn_p * sqrt(1 - xi_p^2);
-polos_planta = [-sigma_p + 1i*wd_p, -sigma_p - 1i*wd_p, -2*sigma_p, -3*sigma_p];
 
-K = place(A, B, polos_planta);
+% Calculando os polos com LQR
+R = 1/50; % Ro definido para garantir entrada menor que 50 V
+Q1 = 2*C'*C; % Definição de Q
+[K,~,polos_planta] = lqr(A,B,Q1,R); % Cálculo do ganho matricial K e dos polos da planta
 M = zeros(size(K, 2), 1);
 M(1) = 1 / (C * inv(B*K - A) * B * K(1));
 
@@ -118,7 +116,25 @@ ylim([-60, 60]);
 
 % Configuração das tolerâncias do ODE45
 opcoes_ode45 = odeset('RelTol', 1e-5, 'AbsTol', 1e-7, 'MaxStep', 0.005);
+% ========================================================================
+% CÁLCULO DA MARGEM DE FASE (Análise de Frequência do Item 10)
+% ========================================================================
+% Criação do modelo de malha aberta: L(s) = K*(sI - A)^-1*B
+sys_ol = ss(A, B, K, 0); 
 
+% A função 'margin' calcula as margens de ganho e fase e as frequências de cruzamento
+[Gm, Pm, Wcg, Wcp] = margin(sys_ol);
+
+% Exibição dos resultados no Command Window
+fprintf('\n--- Análise de Estabilidade no Domínio da Frequência ---\n');
+fprintf('Margem de Ganho (Gm): %.2f (Absoluto) -> %.2f dB\n', Gm, 20*log10(Gm));
+fprintf('Margem de Fase (Pm): %.2f graus\n', Pm);
+fprintf('Frequência de Cruzamento de Fase (Wcg): %.2f rad/s\n', Wcg);
+fprintf('Frequência de Cruzamento de Ganho (Wcp): %.2f rad/s\n', Wcp);
+
+% Plotagem do Diagrama de Bode para visualização das Margens
+figure('Name', 'Margens de Estabilidade (Item 10)', 'NumberTitle', 'off');
+margin(sys_ol);
 % ========================================================================
 % 11. ANÁLISE DE DESEMPENHO (ITEM 11)
 % ========================================================================
